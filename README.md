@@ -1,32 +1,49 @@
 # outreach-ledger
 
-Tracks conversations in flight — who you contacted, what state each thread is in, when
-the next touch is due — and polls your inbox read-only to catch replies. Flags follow-ups;
-never sends them.
+A **Claude Code skill** that gives any project a tracking system for its conversations in
+flight — who you contacted, what state each thread is in, when the next touch is due, and
+read-only inbox polling that catches replies. It flags follow-ups; it never sends them.
 
-Ships as a standalone CLI and a Claude Code skill.
+Say `add an outreach ledger to this project` in Claude Code and the skill wires it in:
+seeds your live threads, adapts the states to your domain, and runs the drumbeat in
+sessions. The scripts also work standalone as a plain CLI.
 
-## Why
+## The thread lifecycle
 
-Silence looks identical to progress. A thread marked "sent" three weeks ago with nothing
-watching it isn't pending — it's dead, and you don't know. The ledger gives every thread a
-state and a next-touch date, `--due` says what needs attention today, and the poller flips
-threads to `replied` the moment answers land.
+```mermaid
+flowchart LR
+    D[drafted] --> S[sent]
+    S -->|"reply detected<br>(read-only poller)"| R[replied]
+    S -->|"--due: day-N flag<br>human drafts + approves"| S
+    S -->|3rd touch unanswered| DM[dormant]
+    R --> IC[in_conversation]
+    IC --> TS[terms_sent] --> SG[signed]
+    IC --> DM
+    DM --> C[closed]
+    NC["doctrine: no-chase<br>tracked, never nudged"] -.excluded from --due.-> S
+```
+
+Silence looks identical to progress — a thread marked "sent" three weeks ago with nothing
+watching it isn't pending, it's dead, and you don't know. The ledger makes the drumbeat
+explicit; the poller flips threads to `replied` the moment answers land.
 
 ## Install
 
-```bash
-git clone https://github.com/b1rdmania/outreach-ledger
-cd outreach-ledger && npm install
-```
-
-As a Claude Code skill (Claude wires the ledger into any project on request):
+As a Claude Code skill:
 
 ```bash
 git clone https://github.com/b1rdmania/outreach-ledger ~/.claude/skills/outreach-ledger
+cd ~/.claude/skills/outreach-ledger && npm install
 ```
 
+Standalone CLI: clone anywhere, `npm install`, run the scripts directly.
+
 ## Usage
+
+In Claude Code: `add an outreach ledger to <project>` — the skill scopes your live
+threads, seeds them, and reports what's due each session.
+
+Directly:
 
 ```bash
 cp seed.example.json seed.json    # edit with your real threads (gitignored)
@@ -46,8 +63,7 @@ node outreach-poll.mjs --once     # read-only inbox scan; cron it for a drumbeat
 1 due. Nothing is sent by this system — drafts need human approval.
 ```
 
-Statuses: `drafted → sent → replied → in_conversation → terms_sent → signed → dormant → closed`.
-They're strings — rename to fit your domain.
+Statuses are strings — rename to fit your domain.
 
 ## What it doesn't do
 
@@ -59,6 +75,16 @@ They're strings — rename to fit your domain.
 - **Touch your mailbox.** The poller opens INBOX read-only — never marks, moves, or
   deletes. Unread stays unread.
 - **Pester.** The third un-replied follow-up flags "mark dormant after".
+
+## Files
+
+```
+SKILL.md             # the skill — recipe, hard rules, verification steps
+outreach.mjs         # ledger CLI: --seed --list --due --add --touch
+outreach-poll.mjs    # read-only IMAP reply detection
+seed.example.json    # thread format example (copy to seed.json, gitignored)
+.env.example         # IMAP credentials format (copy to .env, gitignored)
+```
 
 ## Requirements
 
