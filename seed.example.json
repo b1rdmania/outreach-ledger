@@ -1,0 +1,38 @@
+[
+  {
+    "lane": "cold",
+    "target": "Sam Rivers",
+    "org": "Acme Surveyors",
+    "email": "sam@example.com",
+    "thread_subject": "intro — your published requirements",
+    "channel": "email",
+    "status": "sent",
+    "sent_at": "2026-07-14",
+    "last_touch_at": "2026-07-14",
+    "next_touch_at": "2026-07-21",
+    "touch_count": 1
+  },
+  {
+    "lane": "warm",
+    "target": "Jo Park",
+    "org": "Park & Co",
+    "thread_subject": "coffee follow-up",
+    "channel": "meeting",
+    "status": "in_conversation",
+    "last_touch_at": "2026-07-15",
+    "next_touch_at": "2026-07-29",
+    "notes": "old colleague — keep it human"
+  },
+  {
+    "lane": "client",
+    "target": "Alex Chen",
+    "org": "Chen Holdings",
+    "email": "alex@example.com",
+    "thread_subject": "proposal v2",
+    "channel": "email",
+    "status": "sent",
+    "sent_at": "2026-07-10",
+    "doctrine": "no-chase",
+    "notes": "explicit rule: they come to us — track only, never nudge"
+  }
+]
