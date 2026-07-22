@@ -18,7 +18,9 @@ const require = createRequire(import.meta.url);
 const Database = require('better-sqlite3');
 const db = new Database(process.env.OUTREACH_DB || './outreach.db');
 
-export const STATUSES = ['drafted', 'sent', 'replied', 'in_conversation', 'terms_sent', 'signed', 'dormant', 'closed'];
+// 'bounced' is a first-class dead-end state — a dead address must never masquerade as
+// awaiting-reply (the failure mode this ledger exists to kill). The poller sets it on an NDR.
+export const STATUSES = ['drafted', 'sent', 'replied', 'in_conversation', 'terms_sent', 'signed', 'bounced', 'dormant', 'closed'];
 
 db.exec(`CREATE TABLE IF NOT EXISTS outreach (
   id integer primary key,
@@ -77,7 +79,7 @@ function list() {
       (r.next_touch_at ? ` · next ${r.next_touch_at}${overdue}` : '') +
       (r.notes ? `\n      ${r.notes}` : ''));
   }
-  const inFlight = rows.filter((r) => !['dormant', 'closed', 'signed'].includes(r.status)).length;
+  const inFlight = rows.filter((r) => !['bounced', 'dormant', 'closed', 'signed'].includes(r.status)).length;
   console.log(`\n${rows.length} threads · ${inFlight} in flight`);
 }
 
@@ -85,7 +87,7 @@ function list() {
 // relationships get reminders for a HUMAN touch, not a drafted email.
 function due() {
   const rows = db.prepare(`SELECT * FROM outreach WHERE next_touch_at IS NOT NULL
-    AND next_touch_at <= ? AND status NOT IN ('dormant','closed','signed')
+    AND next_touch_at <= ? AND status NOT IN ('bounced','dormant','closed','signed')
     AND coalesce(doctrine,'') != 'no-chase' ORDER BY next_touch_at`).all(today());
   if (!rows.length) { console.log('nothing due — drumbeat clear'); return; }
   for (const r of rows) {

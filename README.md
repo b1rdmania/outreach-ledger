@@ -2,7 +2,8 @@
 
 A **Claude Code skill** that gives any project a tracking system for its conversations in
 flight — who you contacted, what state each thread is in, when the next touch is due, and
-read-only inbox polling that catches replies. It flags follow-ups; it never sends them.
+read-only inbox polling that catches replies and bounces. It flags follow-ups; it never
+sends them.
 
 Say `add an outreach ledger to this project` in Claude Code and the skill wires it in:
 seeds your live threads, adapts the states to your domain, and runs the drumbeat in
@@ -14,6 +15,7 @@ sessions. The scripts also work standalone as a plain CLI.
 flowchart LR
     D[drafted] --> S[sent]
     S -->|"reply detected<br>(read-only poller)"| R[replied]
+    S -->|"bounce/NDR detected<br>(read-only poller)"| B[bounced]
     S -->|"--due: day-N flag<br>human drafts + approves"| S
     S -->|3rd touch unanswered| DM[dormant]
     R --> IC[in_conversation]
@@ -24,8 +26,10 @@ flowchart LR
 ```
 
 Silence looks identical to progress — a thread marked "sent" three weeks ago with nothing
-watching it isn't pending, it's dead, and you don't know. The ledger makes the drumbeat
-explicit; the poller flips threads to `replied` the moment answers land.
+watching it isn't pending, it's dead, and you don't know. Worse, a dead address bounces the
+moment you send and then sits at "sent" looking exactly like a live thread awaiting reply.
+The ledger makes the drumbeat explicit; the poller flips threads to `replied` when answers
+land and to `bounced` the moment a delivery failure names the address.
 
 ## Install
 

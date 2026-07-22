@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Reply detection — polls a mailbox, flips ledger rows to 'replied'.
+// Reply + bounce detection — polls a mailbox, reconciles it against the ledger.
 // READ-ONLY on the mailbox: opens INBOX read-only, never deletes/moves/marks, never sends.
 // The system tracks and flags; drafting happens with a human and approval.
+//
+// Two things flip a ledger row (both matter — a dead address stuck at 'sent' looks
+// identical to awaiting-reply, the exact failure this skill exists to kill):
+//   • From match on a watched address    → 'replied'
+//   • bounce/NDR naming a watched address → 'bounced'
 //
 //   node outreach-poll.mjs --once     # single poll; cron it for a drumbeat
 //
@@ -63,13 +68,34 @@ async function poll() {
       if (msg.uid > maxUid) maxUid = msg.uid;
       const from = msg.envelope?.from?.[0];
       const addr = from ? `${from.address ?? ''}`.toLowerCase() : '';
+      const subj = msg.envelope?.subject ?? '';
+
+      // Bounce / NDR — comes from mailer-daemon/postmaster, names the dead recipient in its body.
+      const looksBounce = /mailer-daemon|postmaster|mail delivery/i.test(addr)
+        || /delivery status notification|undeliverable|delivery failure|returned mail/i.test(subj);
+      if (looksBounce) {
+        let src = '';
+        try { const dl = await client.download(msg.uid, undefined, { uid: true }); for await (const c of dl.content) src += c.toString('utf8'); } catch {}
+        const failed = new Set([...src.matchAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)].map((m) => m[0].toLowerCase()));
+        for (const f of failed) {
+          const br = watched.get(f);
+          if (br && ['sent', 'drafted'].includes(br.status)) {
+            db.prepare(`UPDATE outreach SET status='bounced', last_touch_at=datetime('now'),
+              next_touch_at=NULL, notes=coalesce(notes,'')||' · BOUNCED (auto-detected)' WHERE id=?`).run(br.id);
+            hits++;
+            console.log(`✖ BOUNCE #${br.id} ${br.target} (${f}) — address dead, needs a correct route`);
+          }
+        }
+        continue;
+      }
+
       const row = watched.get(addr);
       if (!row) continue;
       if (!['sent', 'drafted', 'dormant'].includes(row.status)) continue; // already progressed
       db.prepare(`UPDATE outreach SET status='replied', last_touch_at=datetime('now'),
         next_touch_at=NULL WHERE id=?`).run(row.id);
       hits++;
-      console.log(`⚡ REPLY  #${row.id} ${row.target} (${addr}) — "${msg.envelope.subject ?? ''}" ${msg.envelope.date?.toISOString?.().slice(0, 10) ?? ''} → status=replied`);
+      console.log(`⚡ REPLY  #${row.id} ${row.target} (${addr}) — "${subj}" ${msg.envelope.date?.toISOString?.().slice(0, 10) ?? ''} → status=replied`);
     }
   }
   db.prepare(`INSERT INTO outreach_poll_state (mailbox, uidvalidity, last_uid, last_polled_at)
