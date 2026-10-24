@@ -6,6 +6,6 @@
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.0.0",
-    "imapflow": "^1.0.164"
+    "imapflow": "^1.7.8"
   }
 }
